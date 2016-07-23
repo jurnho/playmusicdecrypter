@@ -20,7 +20,6 @@ __version__ = "2.0"
 
 import os, sys, struct, re, glob, optparse, time
 import Crypto.Cipher.AES, Crypto.Util.Counter
-import mutagen
 import sqlite3
 
 import superadb
@@ -85,7 +84,10 @@ class PlayMusicDecrypter:
 
     def normalize_filename(self, filename):
         """Remove invalid characters from filename"""
-        return unicode(re.sub(r'[<>:"/\\|?*]', " ", filename))
+        sanitized = re.sub(r'[<>:"/\\|?*]', " ", filename)
+        sanitized = re.sub(r'[\xe9]', 'e', sanitized)
+        print sanitized
+        return unicode(sanitized)
 
     def get_outfile(self):
         """Returns output filename based on song informations"""
@@ -93,22 +95,6 @@ class PlayMusicDecrypter:
                                        self.normalize_filename(self.info["Album"]))
         filename = u"{TrackNumber:02d} - {Title}.mp3".format(**self.info)
         return os.path.join(destination_dir, self.normalize_filename(filename))
-
-    def update_id3(self, outfile):
-        """Update ID3 tags in outfile"""
-        audio = mutagen.File(outfile, easy=True)
-        audio.add_tags()
-        audio["title"] = self.info["Title"]
-        audio["album"] = self.info["Album"]
-        audio["artist"] = self.info["Artist"]
-        audio["performer"] = self.info["AlbumArtist"]
-        audio["composer"] = self.info["Composer"]
-        audio["genre"] = self.info["Genre"]
-        audio["date"] = str(self.info["Year"])
-        audio["tracknumber"] = str(self.info["TrackNumber"])
-        audio["discnumber"] = str(self.info["DiscNumber"])
-        audio["compilation"] = str(self.info["Compilation"])
-        audio.save()
 
 
 def is_empty_file(filename):
@@ -183,7 +169,6 @@ def decrypt_files(source_dir="encrypted", destination_dir=".", database="music.d
                 os.makedirs(os.path.dirname(outfile))
 
             decrypter.decrypt_all(outfile)
-            decrypter.update_id3(outfile)
             os.remove(f)
         print("  Decryption finished ({:.1f}s)!".format(time.time() - start_time))
     else:
